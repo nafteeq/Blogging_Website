@@ -10,6 +10,7 @@ import com.upgrad.ublog.utils.DateTimeFormatter;
 import com.upgrad.ublog.utils.LogWriter;
 
 import java.io.IOException;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Scanner;
@@ -22,6 +23,7 @@ public class Application {
 
     private boolean isLoggedIn;
     private String loggedInEmailId;
+    private Object Timestamp;
 
     public Application(PostService postService, UserService userService) {
         scanner = new Scanner(System.in);
@@ -75,7 +77,8 @@ public class Application {
      *  a single catch block which handles all exceptions using the Exception class and print the
      *  exception message using the getMessage() method.
      */
-    private void login() {
+    private void login(){
+
         if (isLoggedIn) {
             System.out.println("You are already logged in.");
             return;
@@ -85,7 +88,34 @@ public class Application {
         System.out.println("********Login********");
         System.out.println("*********************");
 
+        User user = getUserIdFromUser();
+        try {
+            if (userService.login(user)) {
+                System.out.println("You are logged in.");
+                isLoggedIn = true;
+                loggedInEmailId = user.getEmailId();
+            }else {
+                System.out.println("Incorrect EmailId / Password");
+            }
+        }catch(Exception e){
+            System.out.println(e.getMessage());
+        }
 
+    }
+
+    private User getUserIdFromUser() {
+        System.out.print("EmailId.:");
+        String UserEmailId = "";
+
+            UserEmailId = scanner.nextLine();
+            System.out.println("You entered: " + UserEmailId);
+
+        System.out.print("Password:");
+        String password = scanner.nextLine();
+        User user = new User();
+        user.setEmailId(UserEmailId);
+        user.setPassword(password);
+        return user;
     }
 
     /**
@@ -108,7 +138,18 @@ public class Application {
         System.out.println("******Register*******");
         System.out.println("*********************");
 
-
+        User user = getUserIdFromUser();
+        try {
+            if (userService.register(user)) {
+                System.out.println("You are logged in.");
+                isLoggedIn = true;
+                loggedInEmailId = user.getEmailId();
+            }else {
+                System.out.println("Incorrect EmailId / Password");
+            }
+        }catch(Exception e){
+            System.out.println(e.getMessage());
+        }
     }
 
     /**
@@ -142,7 +183,31 @@ public class Application {
      *  thread1: Saving data into the database
      *  thread2: Writing logs into the file
      */
+    public class Timer extends Thread {
+        private int interval;
+        public Timer (String name, int interval) {
+            super(name);
+            this.interval = interval;
+        }
+        @Override
+        public void run() {
+            Post post = getPostdetailsFromUser();
+            LocalDateTime localDateTime = LocalDateTime.now();
+            Timestamp = localDateTime.format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss"));
+            String path = System.getProperty("user.dir");
+            System.out.println(path);
+                try {
+                    PostService.create(post);
+                    Thread.sleep(1000);
+                    LogWriter logWriter = new LogWriter();
+                    logWriter.writeLog(Timestamp + "New post with title " + post.getTitle()+ "created by " + post.getEmailId(),path);
+                } catch(Exception e){
+                    System.out.println(e.getMessage());
+                }
+            }
+        }
     private void createPost() {
+
         if (!isLoggedIn) {
             System.out.println("You are not logged in.");
             return;
@@ -151,8 +216,32 @@ public class Application {
         System.out.println("*********************");
         System.out.println("*****Create Post*****");
         System.out.println("*********************");
+        
+        Thread timer1 = new Timer("timer 1", 5);
+        timer1.start();
+        Thread timer2 = new Timer("timer 2", 8);
+        timer2.start();
 
 
+    }
+
+    private Post getPostdetailsFromUser() {
+        System.out.print("Post Tag:");
+        String postTag = "";
+        String postTitle = "";
+        String postDescription = "";
+
+        postTag = scanner.nextLine();
+        System.out.println("You entered: " + postTag);
+
+        System.out.print("postTilte:");
+        postTitle = scanner.nextLine();
+        postDescription = scanner.nextLine();
+        Post post = new Post();
+        post.setTag(postTag);
+        post.setTitle(postTitle);
+        post.setDescription(postDescription);
+        return post;
     }
 
     /**
@@ -165,7 +254,18 @@ public class Application {
      *  a single catch block which handles all exceptions using the Exception class and print the
      *  exception message using the getMessage() method.
      */
-    private void searchPost() {
+    private Post getPostIdFromUser() {
+        System.out.print("EmailId.:");
+        String PostEmailId = "";
+
+        PostEmailId = scanner.nextLine();
+        System.out.println("You entered: " + PostEmailId);
+        Post post = new Post();
+        post.setEmailId(PostEmailId);
+
+        return post;
+    }
+    private void searchPost(){
         if (!isLoggedIn) {
             System.out.println("You are not logged in.");
             return;
@@ -174,6 +274,22 @@ public class Application {
         System.out.println("*********************");
         System.out.println("*****Search Post*****");
         System.out.println("*********************");
+
+      //  Post post = getPostIdFromUser();
+       String PostEmailId = scanner.nextLine();
+
+            List<Post> AllpostList= PostService.getPostsByEmailId(PostEmailId)) {
+        try {
+            if (AllpostList == null) {
+                throw new PostNotFoundException("Sorry no posts exists for this email id");
+            } else {
+                for (int i = 0; i < AllpostList.size(); i++) {
+                    System.out.println(AllpostList.get(i));
+                }
+            }
+        }catch(Exception e){
+            e.getMessage();
+        }
 
 
     }
@@ -189,7 +305,7 @@ public class Application {
      *  a single catch block which handles all exceptions using the Exception class and print the
      *  exception message using the getMessage() method.
      */
-    private void deletePost() {
+    private void deletePost(){
         if (!isLoggedIn) {
             System.out.println("You are not logged in.");
             return;
@@ -199,6 +315,16 @@ public class Application {
         System.out.println("*****Delete Post*****");
         System.out.println("*********************");
 
+        int postId = scanner.nextInt();
+        try {
+            if (PostService.deletePost(postId)) {
+                System.out.println("Post deleted successfully!");
+            } else {
+                System.out.println("You are not authorised to delete this post");
+            }
+        }catch(Exception e){
+            e.getMessage();
+        }
 
     }
 
@@ -222,8 +348,20 @@ public class Application {
         System.out.println("*********************");
         System.out.println("*****Filter Post*****");
         System.out.println("*********************");
-
-
+            System.out.println(PostService.getAllTags());
+            String tag = scanner.nextLine();
+            List<Post> postList= PostService.getPostsByTag(tag);
+            try {
+                if (postList == null) {
+                    throw new PostNotFoundException("Sorry no posts exists for this tag");
+                } else {
+                    for (int i = 0; i < postList.size(); i++) {
+                        System.out.println(postList.get(i));
+                    }
+                }
+            }catch(Exception e){
+                e.getMessage();
+            }
     }
 
     private void logout() {
@@ -241,8 +379,8 @@ public class Application {
      */
     public static void main(String[] args) {
         ServiceFactory serviceFactory = new ServiceFactory();
-        UserService userService = null;
-        PostService postService = null;
+        UserService userService = serviceFactory.getUserService();
+        PostService postService = serviceFactory.getPostService();
         Application application = new Application(postService, userService);
         application.start();
     }
